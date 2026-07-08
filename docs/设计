@@ -45,7 +45,9 @@ human_ref.json    ─────> 数据加载与校验
 
 1.3 模块划分
 模块名：DataRouter
-职责：读取并校验两个JSON文件，按 id 对齐数据
+职责：
+       读取并校验两个JSON文件，按 id 字段对齐，
+       把每条数据的 auto_reply、human_reference、annotator_notes 拼在一起。
 输入：文件路径
 输出：List[ProcessedCase]
 

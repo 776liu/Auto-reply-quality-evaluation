@@ -23,13 +23,13 @@ def _load_yaml() -> Dict[str, Any]:
     """从 model.yaml 读取原始配置字典。"""
     if not CONFIG_PATH.exists():
         raise FileNotFoundError(
-            f"❌ 配置文件不存在: {CONFIG_PATH}\n"
+            f"   配置文件不存在: {CONFIG_PATH}\n"
             f"   请参考 config/model.yaml.example 创建你的配置文件。"
         )
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
         if data is None:
-            raise ValueError(f"❌ 配置文件为空: {CONFIG_PATH}")
+            raise ValueError(f"  配置文件为空: {CONFIG_PATH}")
         return data
 
 
@@ -59,7 +59,7 @@ def get_api_key() -> str:
     key = _config.get("api", {}).get("key", "")
     if not key or key == "your-api-key-here":
         raise EnvironmentError(
-            "❌ 未找到有效的 API Key。请执行以下任一操作：\n"
+            "   未找到有效的 API Key。请执行以下任一操作：\n"
             "   1. 设置环境变量: export SILICONFLOW_API_KEY=sk-xxx\n"
             "   2. 在 config/model.yaml 中填写 api.key 字段\n"
             "   参考 config/model.yaml.example 创建配置文件。"
