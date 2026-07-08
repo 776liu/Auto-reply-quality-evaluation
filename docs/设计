@@ -1,0 +1,128 @@
+1. 系统整体架构设计
+
+1.1 架构
+采用 批处理流水线（Batch Pipeline） 架构。
+输入20条固定数据集，经过各处理阶段，输出一份结构化的评估报告。
+离线使用，非在线服务。
+
+1.2 数据流程图
+（流水线式）
+  auto_replies.json  (JSON List, 20条)
+         │
+         v
+human_ref.json    ─────> 数据加载与校验 
+                                   │  (DataRouter) 
+                                   │ 对齐后数据结构：List[Case]
+                                   │ Case = {id, user_q, auto_reply, human_ref, notes}
+                                   v
+                            Prompt 组装器   
+                            (TaskBuilder)
+                                   |
+                                   │ 注入 {user_q}, {auto_reply}, {human_ref}, {notes}
+                                   v
+                              LLM 评判引擎   
+                              (LLMJudge)  
+                              硅基流动 API   
+                              DeepSeek-V3    
+                                   |
+                                   │ 返回 JSON 分数 (或 Error)
+                                   V
+                                   |
+                            结果解析与存储 
+                            (ResponseBuilder) 
+                                   |
+                                   │ 结构化评分数据 + 原始回复文本
+                                   V
+                        
+                            指标聚合与报告
+                            (Reporter)    
+                                   |
+                                   │
+                                   v
+                         
+                          评估报告.md + 统计图表  
+
+
+1.3 模块划分
+模块名：DataRouter
+职责：读取并校验两个JSON文件，按 id 对齐数据
+输入：文件路径
+输出：List[ProcessedCase]
+
+模块名：TaskBuilder
+职责：加载模板，注入具体字段，构造完整Prompt
+输入：ProcessedCase, 模板文件
+输出：str
+
+模块名：LLMJudge
+职责：调用硅基流动API，处理请求/响应，包含重试逻辑
+输入：str
+输出：Dict(评分json)
+
+模块名：ResponseBuilder
+职责：解析LLM返回的JSON，处理异常情况
+输入：str
+输出：ScoreResult
+
+模块名：Reporter
+职责：计算统计量，筛选最差Case，生成Markdown报告
+输入：List[ScoreResult]
+输出：report.md, 终端打印统计
+
+==========================================================
+2. API 调用详细设计（硅基流动）
+
+2.1 API 端点与鉴权
+    Base URL: https://api.siliconflow.cn/v1/chat/completions
+
+    Method: POST
+
+    Headers:{
+          "Authorization": "Bearer {API_KEY}",
+          "Content-Type": "application/json"
+        }
+
+2.2 factioncalling
+{
+  "model": "deepseek-ai/DeepSeek-V3",
+  "messages": [
+    {"role": "user", "content": "{完整组装后的Prompt}"}
+  ],    
+  "temperature": 0.1,      # 评分需要确定性和可复现性
+  "max_tokens": 1024,      # 500token以内，不然太贵了
+  "top_p": 0.9,
+  "response_format": {"type": "json_object"}  
+}
+
+2.3 异常处理与重试策略
+
+异常类型：Timeout
+处理策略：指数退避重试（1s, 2s, 4s）
+重试：3次
+降级：标记is_error=True, 分数设为-1
+
+异常类型：限流/服务端错误(404, 400, 502, 523)
+处理策略：等待后重试（5s, 10s）
+重试：3次
+降级：标记is_error=True, 分数设为-1
+
+异常类型：JSON 解析失败 (LLM未返回合法JSON)
+处理策略：尝试正则清洗提取 {} 内容
+重试：/
+降级：若清洗失败，标记为错误
+
+异常类型：KeyError (缺失字段)
+处理策略：用默认值填充并记录日志
+重试：/
+降级：记录 "MISSING_FIELD"
+
+====================================
+其他技术选型：
+
+评判模型：调用DeepSeek V3 通过硅基流动API   - 便宜，适合批量次评估
+
+评分模式：单次多维度       - 少调用几次，还可以保证各个维度的频分语境一致
+
+幻觉判定：二值标记         - 有就打标签
+
+错误处理：重试跳过         - 避免单点失败阻塞全流程
