@@ -45,4 +45,4 @@
 【输出格式】
 请只输出纯 JSON，不要包含 Markdown 代码块标记或其他解释文字。
 格式示例：
-{"factual_accuracy": 4, "problem_resolution": 5, "politeness": 3, "hallucination_flag": 0, "reason": "简要说明扣分或满分理由"}
+{{"factual_accuracy": 4, "problem_resolution": 5, "politeness": 3, "hallucination_flag": 0, "reason": "简要说明扣分或满分理由"}}

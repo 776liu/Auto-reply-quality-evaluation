@@ -1,3 +1,13 @@
+"""自动回复质量评估流水线 — 主入口"""
+
+import sys
+from pathlib import Path
+
+# 确保项目根目录在 sys.path 中（支持 python src/main.py 方式运行）
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 from src.data_router import load_and_align
 from src.task_builder import TaskBuilder
 from src.llm_judge import LLMJudge
@@ -6,8 +16,6 @@ from src.reporter import Reporter
 
 
 def main():
-    """自动回复质量评估流水线 — 主入口"""
-
     # 1. 数据加载与对齐
     print("=" * 50)
     print("[1/5] 加载数据...")
