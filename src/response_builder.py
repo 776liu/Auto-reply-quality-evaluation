@@ -42,8 +42,11 @@ class ResponseBuilder:
             else:
                 return ResponseBuilder._error(case_id, raw_text, "JSON解析失败且清洗无效")
 
-        # 4. 提取字段，缺失时填充 -1
-        return {
+        # 4. 提取字段，缺失时填充 -1 并在 reason 中标记 MISSING_FIELD
+        expected_fields = ["factual_accuracy", "problem_resolution", "politeness", "hallucination_flag"]
+        missing = [f for f in expected_fields if f not in scores]
+
+        result = {
             "id": case_id,
             "factual_accuracy": scores.get("factual_accuracy", -1),
             "problem_resolution": scores.get("problem_resolution", -1),
@@ -53,6 +56,11 @@ class ResponseBuilder:
             "is_error": False,
             "raw_response": raw_text
         }
+
+        if missing:
+            result["reason"] = f"MISSING_FIELD: {', '.join(missing)} | " + result["reason"]
+
+        return result
 
     @staticmethod
     def _clean_json(text: str) -> str:

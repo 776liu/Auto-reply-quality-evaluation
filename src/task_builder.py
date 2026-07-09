@@ -4,7 +4,7 @@ PROMPT_DIR = Path(__file__).resolve().parent.parent / "config"
 
 
 class TaskBuilder:
-    def __init__(self, template_file: str = "prompt_template.txt"):
+    def __init__(self, template_file: str = "prompt_template"):
         self.template_path = PROMPT_DIR / template_file
         with open(self.template_path, "r", encoding="utf-8") as f:
             self.template = f.read()
@@ -18,5 +18,5 @@ class TaskBuilder:
             user_question=case.get("user_question", ""),
             auto_reply=case.get("auto_reply", ""),
             human_reference=case.get("human_reference", ""),
-            notes=case.get("annotator_notes", "")
+            annotator_notes=case.get("annotator_notes", "")
         )

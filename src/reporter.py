@@ -8,14 +8,38 @@ RESULTS_DIR = ROOT_DIR / "results"
 class Reporter:
     """计算统计量，筛选最差 Case，生成 Markdown 报告"""
 
+    # 综合得分公式的权重常量
+    W_FACTUAL = 0.35
+    W_RESOLUTION = 0.35
+    W_POLITENESS = 0.20
+    W_NO_HALLUCINATION = 0.10
+    HALLUCINATION_PENALTY = 0.6
+
     def __init__(self, scores: List[Dict]):
         """
         输入：ResponseBuilder 解析后的 ScoreResult 列表
         """
         self.scores = scores
-        # 排除 is_error=True 的数据
-        self.valid_scores = [s for s in scores if not s.get("is_error", False)]
+        # 排除 is_error=True 的数据，同时排除字段值为 -1 的无效数据
+        self.valid_scores = [
+            s for s in scores
+            if not s.get("is_error", False)
+            and s.get("factual_accuracy", -1) >= 0
+        ]
         self.error_count = len(scores) - len(self.valid_scores)
+
+    @staticmethod
+    def calc_composite_score(s: Dict) -> float:
+        """计算单条 Case 的综合加权得分（复用公式，避免重复）。"""
+        score = (
+            s["factual_accuracy"] * Reporter.W_FACTUAL +
+            s["problem_resolution"] * Reporter.W_RESOLUTION +
+            s["politeness"] * Reporter.W_POLITENESS +
+            (1 - s["hallucination_flag"]) * Reporter.W_NO_HALLUCINATION
+        )
+        if s["hallucination_flag"] == 1:
+            score *= Reporter.HALLUCINATION_PENALTY
+        return score
 
     def compute_statistics(self) -> Dict:
         """计算四个维度的统计量"""
@@ -31,18 +55,7 @@ class Reporter:
         avg_hallucination = sum(s["hallucination_flag"] for s in self.valid_scores) / n
 
         # 计算综合得分
-        composite_scores = []
-        for s in self.valid_scores:
-            score = (
-                s["factual_accuracy"] * 0.35 +
-                s["problem_resolution"] * 0.35 +
-                s["politeness"] * 0.20 +
-                (1 - s["hallucination_flag"]) * 0.10
-            )
-            # 有幻觉时额外惩罚
-            if s["hallucination_flag"] == 1:
-                score *= 0.6
-            composite_scores.append(score)
+        composite_scores = [self.calc_composite_score(s) for s in self.valid_scores]
 
         avg_composite = sum(composite_scores) / n
 
@@ -60,19 +73,10 @@ class Reporter:
 
     def find_worst_cases(self, top_n: int = 3) -> List[Dict]:
         """筛选综合得分最低的 N 条 Case"""
-        # 给每条数据计算综合得分
-        scored = []
-        for s in self.valid_scores:
-            score = (
-                s["factual_accuracy"] * 0.35 +
-                s["problem_resolution"] * 0.35 +
-                s["politeness"] * 0.20 +
-                (1 - s["hallucination_flag"]) * 0.10
-            )
-            if s["hallucination_flag"] == 1:
-                score *= 0.6
-            scored.append({**s, "composite_score": round(score, 2)})
-
+        scored = [
+            {**s, "composite_score": round(self.calc_composite_score(s), 2)}
+            for s in self.valid_scores
+        ]
         # 按综合得分升序排列，取最低的 N 条
         scored.sort(key=lambda x: x["composite_score"])
         return scored[:top_n]
@@ -81,6 +85,14 @@ class Reporter:
         """生成 Markdown 报告"""
         stats = self.compute_statistics()
         worst = self.find_worst_cases()
+
+        # 无有效数据时生成降级报告
+        if "error" in stats:
+            return (
+                "# 自动回复质量评估报告\n\n"
+                "## ⚠️ 无有效数据\n\n"
+                f"无法生成报告：{stats['error']}。"
+            )
 
         lines: List[str] = []
 

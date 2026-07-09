@@ -33,7 +33,7 @@ class LLMJudge:
                     temperature=self.temperature,
                     max_tokens=self.max_tokens,
                     top_p=self.top_p,
-                    extra_body={"response_format": {"type": "json_object"}}
+                    response_format={"type": "json_object"}
                 )
 
                 return {"raw_response": response.choices[0].message.content}
@@ -48,6 +48,7 @@ class LLMJudge:
                         print(f"[LLMJudge] 超时重试 {attempt + 1}/{max_attempts}，等待 {wait}s...")
                         time.sleep(wait)
                     else:
+                        print(f"[LLMJudge] 超时重试耗尽 ({max_attempts} 次): {error_msg}")
                         return {"error": f"超时重试耗尽: {error_msg}"}
 
 
@@ -57,6 +58,7 @@ class LLMJudge:
                         print(f"[LLMJudge] 服务器错误重试 {attempt + 1}/{max_attempts}，等待 {wait}s...")
                         time.sleep(wait)
                     else:
+                        print(f"[LLMJudge] 服务器错误重试耗尽 ({max_attempts} 次): {error_msg}")
                         return {"error": f"服务器错误重试耗尽: {error_msg}"}
 
                 # 其他未知错误，不重试，直接返回
