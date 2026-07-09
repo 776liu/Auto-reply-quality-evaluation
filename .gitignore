@@ -1,6 +1,7 @@
 # 环境变量 & 密钥
 .env
 config/model.yaml
+.CLAUDE.md
 
 # Python
 __pycache__/
