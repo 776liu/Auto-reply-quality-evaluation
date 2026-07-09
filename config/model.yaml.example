@@ -4,7 +4,7 @@
 # ==========================================
 
 api:
-  base_url: "https://api.siliconflow.cn/v1/chat/completions"
+  base_url: "https://api.siliconflow.cn/"
   key: "your-api-key-here"
 
 model:
